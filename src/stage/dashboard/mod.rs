@@ -98,4 +98,26 @@ impl App {
     pub fn view(&self) -> Element<Message> {
         self.state.view(&self.context)
     }
+
+    // async fn restore_relays(&self) -> Result<(), Error> {
+    //     let relays = self.db.get_relays(true).await?;
+    //     for (url, proxy) in relays.into_iter() {
+    //         let opts = RelayOptions::new().proxy(proxy);
+    //         self.client.add_relay_with_opts(url, opts).await?;
+    //     }
+
+    //     if self.client.relays().await.is_empty() {
+    //         for url in self.default_relays().into_iter() {
+    //             let url = Url::parse(&url)?;
+    //             self.client.add_relay(&url).await?;
+    //             self.db.insert_relay(url.clone(), None).await?;
+    //             self.db.enable_relay(url).await?;
+    //         }
+    //     }
+
+    //     // Restore Nostr Connect Session relays
+    //     self.load_nostr_connect_relays().await?;
+
+    //     Ok(())
+    // }
 }

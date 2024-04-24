@@ -3,7 +3,7 @@
 
 use iced::widget::{image, Column, Container, Row, Text};
 use iced::{Alignment, Length};
-use nostr_sdk::sqlite::model::Profile;
+use nostr_sdk::database::Profile;
 use once_cell::sync::Lazy;
 
 static UNKNOWN_IMG_PROFILE: Lazy<image::Handle> = Lazy::new(|| {
@@ -39,10 +39,10 @@ impl Contact {
 
         let mut info = Column::new();
 
-        if let Some(display_name) = self.profile.display_name.clone() {
+        if let Some(display_name) = self.profile.metadata().display_name.clone() {
             info = info.push(Row::new().push(Text::new(display_name)));
         } else {
-            let pk = self.profile.pubkey.to_string();
+            let pk = self.profile.public_key().to_string();
             info = info.push(Row::new().push(Text::new(format!(
                 "{}:{}",
                 &pk[0..8],
@@ -50,7 +50,7 @@ impl Contact {
             ))));
         }
 
-        if let Some(name) = self.profile.name.clone() {
+        if let Some(name) = self.profile.metadata().name.clone() {
             info = info.push(Row::new().push(Text::new(format!("@{}", name)).size(16)));
         } else {
             info = info.push(Row::new());

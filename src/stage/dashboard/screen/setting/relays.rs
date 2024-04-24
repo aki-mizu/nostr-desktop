@@ -6,15 +6,15 @@ use std::time::Duration;
 
 use iced::widget::{text, Button, Checkbox, Column, Row, Rule, Text, TextInput};
 use iced::{time, Alignment, Command, Element, Length, Subscription};
-use nostr_sdk::nostr::url::Url;
-use nostr_sdk::RelayStatus;
+use nostr_sdk::nostr::Url;
+use nostr_sdk::{RelayOptions, RelayStatus};
 
 use super::SettingMessage;
 use crate::component::{Circle, Icon};
 use crate::message::{DashboardMessage, Message};
 use crate::stage::dashboard::component::Dashboard;
 use crate::stage::dashboard::{Context, State};
-use crate::theme::color::{GREEN, GREY, RED, YELLOW};
+use crate::theme::color::{CYAN, GREEN, GREY, ORANGE, RED, YELLOW};
 use crate::theme::icon::TRASH;
 use crate::RUNTIME;
 
@@ -56,7 +56,7 @@ impl RelaysState {
     }
 
     async fn add_relay(&mut self, ctx: &Context, proxy: Option<SocketAddr>) {
-        match ctx.client.add_relay(&self.relay_url, proxy).await {
+        match ctx.client.add_relay_with_opts(self.relay_url.clone(), RelayOptions::new().proxy(proxy)).await {
             Ok(_) => {
                 ctx.client.connect().await;
                 self.relay_url.clear();
@@ -107,7 +107,7 @@ impl State for RelaysState {
                 RelaysMessage::RemoveRelay(url) => {
                     return Command::perform(
                         async move {
-                            if let Err(e) = client.remove_relay(&url).await {
+                            if let Err(e) = client.remove_relay(url).await {
                                 log::error!("Impossible to remove {}: {}", url, e.to_string());
                             }
                         },
@@ -117,7 +117,7 @@ impl State for RelaysState {
                 RelaysMessage::AddRelayFromStore(url, proxy) => {
                     return Command::perform(
                         async move {
-                            if let Err(e) = client.add_relay(url.clone(), proxy).await {
+                            if let Err(e) = client.add_relay_with_opts(url.clone(), RelayOptions::new().proxy(proxy)).await {
                                 log::error!("Impossible to add {}: {}", url, e.to_string());
                             }
                             client.connect().await;
@@ -128,7 +128,7 @@ impl State for RelaysState {
                 RelaysMessage::DisconnectRelay(url) => {
                     return Command::perform(
                         async move {
-                            if let Err(e) = client.disconnect_relay(&url).await {
+                            if let Err(e) = client.disconnect_relay(url).await {
                                 log::error!("Impossible to disconnect {}: {}", url, e.to_string());
                             }
                         },
@@ -202,9 +202,11 @@ impl State for RelaysState {
         for (status, url, proxy) in self.relays.iter() {
             let status = match status {
                 RelayStatus::Initialized => Circle::new(7.0).color(GREY),
+                RelayStatus::Pending => Circle::new(7.0).color(CYAN),
                 RelayStatus::Connecting => Circle::new(7.0).color(YELLOW),
                 RelayStatus::Connected => Circle::new(7.0).color(GREEN),
                 RelayStatus::Disconnected => Circle::new(7.0).color(RED),
+                RelayStatus::Stopped => Circle::new(7.0).color(ORANGE),
                 RelayStatus::Terminated => continue,
             };
 

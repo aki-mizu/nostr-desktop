@@ -1,11 +1,12 @@
 // Copyright (c) 2022 Yuki Kishimoto
 // Distributed under the MIT software license
 
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use iced::widget::{image, Column, Row, Text};
 use iced::{Command, Element};
 use nostr_sdk::nostr::secp256k1::XOnlyPublicKey;
+use nostr_sdk::Profile;
 
 use crate::message::{DashboardMessage, Message};
 use crate::stage::dashboard::component::{Contact, Dashboard};
@@ -13,6 +14,7 @@ use crate::stage::dashboard::{Context, State};
 
 #[derive(Debug, Clone)]
 pub enum ContactsMessage {
+    LoadContacts(BTreeSet<Profile>),
     SearchImage(XOnlyPublicKey, String),
     MaybeFoundImage(XOnlyPublicKey, Option<image::Handle>),
 }
@@ -51,6 +53,11 @@ impl State for ContactsState {
 
         if let Message::Dashboard(DashboardMessage::Contacts(msg)) = message {
             match msg {
+                ContactsMessage::LoadContacts(contacts) => {
+                    self.contacts = contacts;
+                    self.loading = false;
+                    self.loaded = true;
+                }
                 ContactsMessage::SearchImage(pk, url) => {
                     return Command::perform(async { fetch_image(url).await }, move |image| {
                         ContactsMessage::MaybeFoundImage(pk, image).into()
@@ -65,7 +72,7 @@ impl State for ContactsState {
 
         for (pk, contact) in self.contacts.iter() {
             if contact.image.is_none() {
-                if let Some(url) = contact.profile.picture.clone() {
+                if let Some(url) = contact.profile.metadata().picture.clone() {
                     let pk = *pk;
                     commands.push(Command::perform(async {}, move |_| {
                         ContactsMessage::SearchImage(pk, url).into()
@@ -81,7 +88,7 @@ impl State for ContactsState {
         let mut contacts = Column::new().spacing(10);
 
         let mut contacts_vec: Vec<(&XOnlyPublicKey, &Contact)> = self.contacts.iter().collect();
-        contacts_vec.sort_by(|a, b| a.1.profile.name.cmp(&b.1.profile.name));
+        contacts_vec.sort_by(|a, b| a.1.profile.metadata().name.cmp(&b.1.profile.metadata().name));
         for (_, contact) in contacts_vec.iter() {
             contacts = contacts.push(Row::new().push(contact.view()));
         }

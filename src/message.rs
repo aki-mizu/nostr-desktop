@@ -35,4 +35,6 @@ pub enum Message {
     Clipboard(String),
     Login(LoginMessage),
     Dashboard(DashboardMessage),
+    ErrorOccurred(String),
+    LoadDisplayName(String),
 }

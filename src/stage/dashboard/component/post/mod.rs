@@ -89,7 +89,7 @@ impl Post {
             )
             .spacing(20);
 
-        let dt: DateTime<Utc> = DateTime::from_timestamp(self.event.created_at as i64, 0)
+        let dt: DateTime<Utc> = DateTime::from_timestamp(self.event.created_at.as_i64(), 0)
             .unwrap_or(DateTime::<Utc>::MIN_UTC);
 
         let post = Column::new()

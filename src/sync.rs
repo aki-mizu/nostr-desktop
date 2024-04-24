@@ -6,8 +6,9 @@ use iced::advanced::subscription::{EventStream, Recipe};
 use iced::advanced::Hasher;
 use iced::Subscription;
 use iced_futures::BoxStream;
+use nostr_sdk::event::kind;
 use nostr_sdk::nostr::Event;
-use nostr_sdk::{Client, RelayPoolNotifications};
+use nostr_sdk::{Client, Filter, Kind, NostrDatabaseExt, PublicKey, RelayPoolNotification, SubscribeOptions};
 use tokio::sync::mpsc;
 
 use crate::RUNTIME;
@@ -30,8 +31,35 @@ impl Recipe for NostrSync {
 
         let client = self.client.clone();
         RUNTIME.block_on(async move {
-            if let Err(e) = client.sync().await {
-                panic!("Impossible to start sync thread: {}", e);
+            if let Ok(signer) = client.signer().await {
+                if let Ok(public_key) = signer.public_key().await {
+                    for (relay_url, relay) in client.relays().await {
+                        let contacts: Vec<PublicKey> = client
+                        .database()
+                        .contacts_public_keys(public_key)
+                        .await
+                        .unwrap_or_default();
+                        let base_filter = Filter::new().kinds([
+                            Kind::Metadata,
+                            Kind::TextNote,
+                            Kind::Repost,
+                            Kind::Reaction,
+                        ]).author(public_key);
+                        let filters: Vec<Filter> = vec![base_filter];
+                        if !contacts.is_empty() {
+                            filters.push(Filter::new().authors(contacts));
+                        }
+                        if let Err(e) = relay
+                            .subscribe(
+                                filters,
+                                SubscribeOptions::default(),
+                            )
+                            .await
+                        {
+                            panic!("Impossible to start sync thread: {}", e);
+                        }
+                    }
+                }
             }
         });
 
@@ -40,11 +68,11 @@ impl Recipe for NostrSync {
             let mut notifications = client.notifications();
             while let Ok(notification) = notifications.recv().await {
                 match notification {
-                    RelayPoolNotifications::ReceivedEvent(event) => {
+                    RelayPoolNotification::Event{ event, ..} => {
                         // TODO: Send desktop notification
-                        sender.send(event).ok();
+                        sender.send(*event).ok();
                     }
-                    RelayPoolNotifications::Shutdown => break,
+                    RelayPoolNotification::Shutdown => break,
                     _ => (),
                 }
             }

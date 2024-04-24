@@ -5,8 +5,8 @@ use std::path::Path;
 
 use iced::widget::{button, column, container, row, text, text_input};
 use iced::{Command, Element, Length};
-use nostr_sdk::nostr::key::{FromSkStr, Keys};
-use nostr_sdk::Client;
+use nostr_sdk::nostr::key::Keys;
+use nostr_sdk::{Client, ClientBuilder, SQLiteDatabase};
 
 use crate::message::Message;
 use crate::stage::auth::context::Context;
@@ -45,18 +45,26 @@ impl State for LoginState {
         if let Message::Login(msg) = message {
             match msg {
                 LoginMessage::SecretKeyChanged(secret_key) => self.secret_key = secret_key,
-                LoginMessage::ButtonPressed => match Keys::from_sk_str(&self.secret_key) {
-                    Ok(keys) => match Client::new_with_store(
-                        &keys,
-                        dir::default_dir().unwrap_or_else(|_| Path::new("./").to_path_buf()),
-                    ) {
-                        Ok(client) => {
-                            return Command::perform(async {}, move |_| {
-                                Message::LoginResult(client)
-                            })
-                        }
-                        Err(e) => self.error = Some(e.to_string()),
-                    },
+                LoginMessage::ButtonPressed => match Keys::parse(&self.secret_key) {
+                    Ok(keys) => { 
+                        return Command::perform(async move {
+                            let nostr_db_path = dir::default_dir().unwrap_or_else(|_| Path::new("./").to_path_buf());
+                            let nostr_db = SQLiteDatabase::open(nostr_db_path).await?;
+                            let client = ClientBuilder::new()
+                            .signer(keys)
+                            .database(nostr_db)
+                            .build();
+                        Ok::<Client, Box<dyn std::error::Error>>(client)
+                        }, |res| {
+                            match res {
+                            Ok(client) => Message::LoginResult(client),
+                            Err(e) => {
+                                self.error = Some(e.to_string());
+                                Message::ErrorOccurred(e.to_string())
+                            },
+                            }
+                    });
+                    }
                     Err(e) => self.error = Some(e.to_string()),
                 },
             }
